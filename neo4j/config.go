@@ -20,6 +20,7 @@
 package neo4j
 
 import (
+	"crypto/tls"
 	"crypto/x509"
 	"math"
 	"net/url"
@@ -31,6 +32,9 @@ import (
 // A Config contains options that can be used to customize certain
 // aspects of the driver
 type Config struct {
+	// TLSConfig defines the tls config for the connection. If RootCAs is not nil and TLSConfig is not nil, RootCAs will be used over the TLSConfig RootCA
+	TLSConfig *tls.Config
+
 	// RootCAs defines the set of certificate authorities that the driver trusts. If set
 	// to nil, the driver uses hosts system certificates.
 	//
@@ -110,6 +114,7 @@ func defaultConfig() *Config {
 		SocketConnectTimeout:         5 * time.Second,
 		SocketKeepalive:              true,
 		RootCAs:                      nil,
+		TLSConfig:                    nil,
 		UserAgent:                    UserAgent,
 		FetchSize:                    FetchDefault,
 	}

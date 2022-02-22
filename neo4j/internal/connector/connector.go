@@ -36,6 +36,7 @@ import (
 type Connector struct {
 	SkipEncryption  bool
 	SkipVerify      bool
+	TLSConfig       *tls.Config
 	RootCAs         *x509.CertPool
 	DialTimeout     time.Duration
 	SocketKeepAlive bool
@@ -79,13 +80,23 @@ func (c Connector) Connect(address string, boltLogger log.BoltLogger) (db.Connec
 	}
 
 	// TLS requested, continue with handshake
-	serverName, _, err := net.SplitHostPort(address)
-	if err != nil {
-		conn.Close()
-		return nil, err
+	// verify tls config isn't nil, if it is set a new one up with rootCA. If not check if a separate rootCA was defined, if not set to the rootCA
+	if c.TLSConfig == nil {
+		c.TLSConfig = &tls.Config{InsecureSkipVerify: c.SkipVerify, RootCAs: c.RootCAs}
+	} else if c.TLSConfig.RootCAs == nil && c.RootCAs != nil {
+		c.TLSConfig.RootCAs = c.RootCAs
 	}
-	config := tls.Config{InsecureSkipVerify: c.SkipVerify, RootCAs: c.RootCAs, ServerName: serverName}
-	tlsconn := tls.Client(conn, &config)
+
+	if c.TLSConfig.ServerName == "" {
+		serverName, _, err := net.SplitHostPort(address)
+		if err != nil {
+			conn.Close()
+			return nil, err
+		}
+		c.TLSConfig.ServerName = serverName
+	}
+
+	tlsconn := tls.Client(conn, c.TLSConfig)
 	err = tlsconn.Handshake()
 	if err != nil {
 		if err == io.EOF {
