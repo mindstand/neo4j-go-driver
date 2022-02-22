@@ -74,34 +74,34 @@ func (i *internalTx4) toMeta() map[string]interface{} {
 }
 
 type bolt4 struct {
-	state                 int
-	txId                  db.TxHandle
-	streams               openstreams
-	conn                  net.Conn
-	serverName            string
-	out                   outgoing
-	in                    incoming
-	connId                string
-	logId                 string
-	serverVersion         string
-	tfirst                int64       // Time that server started streaming
-	pendingTx             internalTx4 // Stashed away when tx started explicitly
-	hasPendingTx          bool
-	bookmark              string // Last bookmark
-	birthDate             time.Time
-	log                   log.Logger
-	databaseName          string
-	err                   error // Last fatal error
-	minor                 int
+	state         int
+	txId          db.TxHandle
+	streams       openstreams
+	conn          net.Conn
+	serverName    string
+	out           outgoing
+	in            incoming
+	connId        string
+	logId         string
+	serverVersion string
+	tfirst        int64       // Time that server started streaming
+	pendingTx     internalTx4 // Stashed away when tx started explicitly
+	hasPendingTx  bool
+	bookmark      string // Last bookmark
+	birthDate     time.Time
+	log           log.Logger
+	databaseName  string
+	err           error // Last fatal error
+	minor         int
 }
 
-func NewBolt4(serverName string, conn net.Conn, log log.Logger, boltLog log.BoltLogger) *bolt4 {
+func NewBolt4(serverName string, conn net.Conn, logger log.Logger, boltLog log.BoltLogger) *bolt4 {
 	b := &bolt4{
 		state:      bolt4_unauthorized,
 		conn:       conn,
 		serverName: serverName,
 		birthDate:  time.Now(),
-		log:        log,
+		log:        logger,
 		streams:    openstreams{},
 		in: incoming{
 			buf: make([]byte, 4096),
@@ -109,7 +109,8 @@ func NewBolt4(serverName string, conn net.Conn, log log.Logger, boltLog log.Bolt
 				boltLogger: boltLog,
 			},
 			connReadTimeout: -1,
-			logger: log,
+			logger:          logger,
+			logName:         log.Bolt4,
 		},
 	}
 	b.out = outgoing{
@@ -459,7 +460,7 @@ func (b *bolt4) discardAllStreams() {
 
 // Sends a PULL n request to server. State should be streaming and there should be a current stream.
 func (b *bolt4) sendPullN() {
-	b.assertState(bolt4_streaming, bolt3_streamingtx)
+	b.assertState(bolt4_streaming, bolt4_streamingtx)
 	if b.state == bolt4_streaming {
 		b.out.appendPullN(b.streams.curr.fetchSize)
 		b.out.send(b.conn)
@@ -965,12 +966,13 @@ func (b *bolt4) initializeReadTimeoutHint(hints map[string]interface{}) {
 	}
 	readTimeout, ok := readTimeoutHint.(int64)
 	if !ok {
-		b.log.Infof(log.Bolt4, b.logId, `invalid %q value: %v, ignoring hint. Only strictly positive integer values are accepted`, readTimeoutHintName, readTimeoutHint)
+		b.log.Warnf(log.Bolt4, b.logId, `invalid %q value: %v, ignoring hint. Only strictly positive integer values are accepted`, readTimeoutHintName, readTimeoutHint)
 		return
 	}
 	if readTimeout <= 0 {
-		b.log.Infof(log.Bolt4, b.logId, `invalid %q integer value: %d. Only strictly positive values are accepted"`, readTimeoutHintName, readTimeout)
+		b.log.Warnf(log.Bolt4, b.logId, `invalid %q integer value: %d. Only strictly positive values are accepted"`, readTimeoutHintName, readTimeout)
 		return
 	}
+	b.log.Infof(log.Bolt4, b.logId, `received "connection.recv_timeout_seconds" hint value of %d second(s)`, readTimeout)
 	b.in.connReadTimeout = time.Duration(readTimeout) * time.Second
 }

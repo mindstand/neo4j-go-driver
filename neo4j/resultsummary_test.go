@@ -43,3 +43,68 @@ func TestProfiledPlan(st *testing.T) {
 		}
 	})
 }
+
+func TestCounters(st *testing.T) {
+
+	emptySummary := resultSummary{sum: &db.Summary{}}
+	summary := resultSummary{
+		sum: &db.Summary{
+			Counters: map[string]int{
+				"system-updates": 42,
+			},
+		},
+	}
+
+	st.Run("Returns empty system update count by default", func(t *testing.T) {
+		actual := emptySummary.Counters().SystemUpdates()
+		if actual != 0 {
+			t.Errorf("Expected 0 system update, got %d", actual)
+		}
+	})
+
+	st.Run("Returns populated system update count", func(t *testing.T) {
+		actual := summary.Counters().SystemUpdates()
+		if actual != 42 {
+			t.Errorf("Expected 42 system updates, got %d", actual)
+		}
+	})
+}
+
+func TestNotifications(st *testing.T) {
+	pos1 := db.InputPosition{
+		Offset: 1,
+		Line:   2,
+		Column: 3,
+	}
+	notif1 := db.Notification{
+		Code:        "code1",
+		Title:       "title1",
+		Description: "desc1",
+		Severity:    "sev1",
+		Position:    &pos1,
+	}
+	notif2 := db.Notification{
+		Code:        "code2",
+		Title:       "title2",
+		Description: "desc2",
+		Severity:    "sev2",
+		Position:    nil,
+	}
+
+	summary := resultSummary{
+		sum: &db.Summary{
+			Notifications: []db.Notification{notif1, notif2},
+		},
+	}
+
+	st.Run("Notifications are returned correctly", func(t *testing.T) {
+		expected := []Notification{
+			&notification{notification: &notif1},
+			&notification{notification: &notif2},
+		}
+		received := summary.Notifications()
+		if !reflect.DeepEqual(received, expected) {
+			t.Errorf("Expected %v to equal %v", received, expected)
+		}
+	})
+}
