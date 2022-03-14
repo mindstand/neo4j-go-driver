@@ -154,10 +154,11 @@ func NewDriver(target string, auth AuthToken, configurers ...func(*Config)) (Dri
 	}
 
 	// Continue to setup connector
+	d.connector.TLSConfig = d.config.TLSConfig
+	d.connector.RootCAs = d.config.RootCAs
 	d.connector.DialTimeout = d.config.SocketConnectTimeout
 	d.connector.SocketKeepAlive = d.config.SocketKeepalive
 	d.connector.UserAgent = d.config.UserAgent
-	d.connector.RootCAs = d.config.RootCAs
 	d.connector.Log = d.log
 	d.connector.Auth = auth.tokens
 	d.connector.RoutingContext = routingContext
